@@ -6,6 +6,8 @@ import math
 import os
 import time
 
+from decimal import Decimal
+
 import boto3
 from botocore.exceptions import ClientError
 
@@ -51,18 +53,22 @@ def _composite_score(mse, runtime_s, memory_mb, submission_bytes):
     return mse * math.exp(exponent)
 
 
+def _to_decimal(obj):  #dynamo refuses floats; round-trip through json to decimalize everything
+    return json.loads(json.dumps(obj), parse_float=Decimal)
+
+
 def _record_best_score(team, score, breakdown):  #conditional write: only overwrite a worse (higher) stored score
     table = _dynamodb.Table(SCORES_TABLE)
     try:
         table.put_item(
-            Item={
+            Item=_to_decimal({
                 "team": team,
                 "score": score,
                 "breakdown": breakdown,
                 "updated_at": int(time.time()),
-            },
+            }),
             ConditionExpression="attribute_not_exists(team) OR score < :new",
-            ExpressionAttributeValues={":new": score},
+            ExpressionAttributeValues=_to_decimal({":new": score}),
         )
         return True
     except ClientError as e:
