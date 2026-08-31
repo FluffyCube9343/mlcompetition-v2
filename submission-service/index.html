@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Competition Submissions</title>
+<style>
+  /* Plain, readable, no framework - easy for students to hack on. */
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #0f172a; color: #e2e8f0;
+    display: flex; justify-content: center; padding: 40px 16px;
+  }
+  main { width: 100%; max-width: 560px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  .sub { color: #94a3b8; font-size: .9rem; margin-bottom: 24px; }
+  .card {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 12px; padding: 24px;
+  }
+  label { display: block; font-size: .85rem; color: #94a3b8; margin: 16px 0 6px; }
+  input[type=text] {
+    width: 100%; padding: 10px 12px; border-radius: 8px;
+    border: 1px solid #475569; background: #0f172a; color: #e2e8f0;
+    font-size: .95rem;
+  }
+  input[type=file] {
+    width: 100%; padding: 12px; border-radius: 8px;
+    border: 1px dashed #475569; background: #0f172a; color: #94a3b8;
+  }
+  button {
+    margin-top: 20px; width: 100%; padding: 12px;
+    border: 0; border-radius: 8px; font-size: 1rem; font-weight: 600;
+    background: #38bdf8; color: #0f172a; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: wait; }
+  #result {
+    margin-top: 20px; padding: 16px; border-radius: 8px;
+    background: #0f172a; border: 1px solid #334155;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: .85rem; white-space: pre-wrap; display: none;
+  }
+  #result.error { border-color: #f87171; color: #fca5a5; }
+  #result.ok { border-color: #4ade80; }
+  .hint { font-size: .8rem; color: #64748b; margin-top: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Competition Submissions</h1>
+  <p class="sub">Upload your solution. <b>main.py</b> is the entry point - it can
+     open the other files you upload by their plain name
+     (e.g. <code>open("weights.h5")</code>).</p>
+
+  <form id="f" class="card">
+    <label for="team">Team / submission name</label>
+    <input type="text" id="team" name="team" placeholder="team-alpha" required>
+
+    <label for="files">Files (must include main.py)</label>
+    <input type="file" id="files" name="files" multiple required>
+    <div class="hint">
+      main.py plus any files it needs: weights (.safetensors, .onnx, .h5),
+      helper .py modules, small data files. Pickle (.pkl/.pickle/.joblib) is refused.
+    </div>
+
+    <button id="go" type="submit">Submit &amp; score</button>
+    <div id="result"></div>
+  </form>
+</main>
+
+<script>
+const form = document.getElementById("f");
+const btn = document.getElementById("go");
+const out = document.getElementById("result");
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  btn.disabled = true;
+  btn.textContent = "Scoring - this can take a minute...";
+  out.style.display = "block";
+  out.className = "";
+  out.textContent = "Uploading and running your code...";
+
+  const data = new FormData();
+  data.append("team", document.getElementById("team").value);
+  for (const f of document.getElementById("files").files) {
+    data.append("files", f, f.name);
+  }
+
+  try {
+    const resp = await fetch("/submit", { method: "POST", body: data });
+    const body = await resp.json();
+    if (!resp.ok) {
+      out.className = "error";
+      out.textContent = "Error: " + (body.error || resp.statusText)
+        + (body.detail ? "\n" + JSON.stringify(body.detail, null, 2) : "");
+    } else {
+      out.className = "ok";
+      out.textContent =
+        (body.new_best ? "NEW BEST SCORE!\n\n" : "Score recorded (your best is kept).\n\n")
+        + JSON.stringify(body, null, 2);
+    }
+  } catch (err) {
+    out.className = "error";
+    out.textContent = "Network error: " + err;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Submit & score";
+  }
+});
+</script>
+</body>
+</html>
